@@ -1,0 +1,21 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.cheebeez.radio_player">
+
+    <!--  Permissions for the plugin  -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!--  Services for the plugin  -->
+    <application android:usesCleartextTraffic="true">
+        <service
+            android:exported="true"
+            android:name=".RadioPlayerService"/>
+        <receiver android:name=".MyBroadCastReceiver"
+            tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON"/>
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>
