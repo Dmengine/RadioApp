@@ -9,11 +9,13 @@
     <application android:usesCleartextTraffic="true">
         <service
             android:exported="true"
+            android:foregroundServiceType="mediaPlayback"
             android:name=".RadioPlayerService"/>
         <receiver android:name=".MyBroadCastReceiver"
+            android:exported="true"
             tools:ignore="Instantiatable">
             <intent-filter>
-                <action android:name="android.intent.action.MEDIA_BUTTON"/>
+                <action android:name="com.radiofm.freeradio.N"/>
             </intent-filter>
         </receiver>
     </application>
