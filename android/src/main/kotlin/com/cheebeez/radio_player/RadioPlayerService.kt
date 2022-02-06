@@ -7,9 +7,7 @@
 package com.cheebeez.radio_player
 
 
-import android.app.Notification
-import android.app.PendingIntent
-import android.app.Service
+import android.app.*
 import android.content.*
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
@@ -19,11 +17,11 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.support.v4.media.session.MediaSessionCompat
-import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationCompat.PRIORITY_MIN
 import androidx.core.app.NotificationManagerCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
@@ -62,15 +60,18 @@ import java.util.*
     private var isForegroundService = true
     private var metadataList: MutableList<String>? = null
     private var localBinder = LocalBinder()
-    private var mediaSession:MediaSessionCompat?=null
-    private var componentName:ComponentName?=null
     private var br : BroadcastReceiver?=null
+    private var p:PendingIntent?=null
+    private var playintent:PendingIntent?=null
+    private var pauseintent:PendingIntent?=null
+    private var nextintent:PendingIntent?=null
+    private var previousintent:PendingIntent?=null
     private val player: SimpleExoPlayer by lazy {
         SimpleExoPlayer.Builder(this).build()
     }
 
 
-    private val localBroadcastManager: LocalBroadcastManager by lazy {
+    public val localBroadcastManager: LocalBroadcastManager by lazy {
         LocalBroadcastManager.getInstance(this)
     }
 
@@ -84,12 +85,6 @@ import java.util.*
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        componentName=ComponentName(this,MyCallBack::class.java)
-        mediaSession =MediaSessionCompat(this,"tag",componentName,null)
-        mediaSession?.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS)
-        mediaSession?.setFlags(MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS)
-        mediaSession?.setCallback(MyCallBack())
-        mediaSession?.isActive = true
         player.setRepeatMode(Player.REPEAT_MODE_OFF)
         player.addListener(this)
         //player.addMetadataOutput(this)
@@ -104,15 +99,13 @@ import java.util.*
         super.onDestroy()
         playerNotificationManager?.setPlayer(null)
         player.release()
-        mediaSession?.release()
-        mediaSession?.isActive=false
-        unregisterReceiver(br)
-        stopForeground(true)
-        with(NotificationManagerCompat.from(this)) {
-            // notificationId is a unique int for each notification that you must define
-            cancel(NOTIFICATION_ID)
+        try{
+            unregisterReceiver(br)
+            stopForeground(true)
+        }catch (e:Exception){
+            println(e)
         }
-        stopSelf()
+
         android.os.Process.killProcess(android.os.Process.myPid());
     }
     fun reset(){
@@ -161,7 +154,6 @@ import java.util.*
     fun stop(){
         player.playWhenReady = false
         createNotificationManager()
-
     }
 
 
@@ -188,63 +180,95 @@ import java.util.*
         return urls
     }
 
+
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createNotificationChannel(channelId: String, channelName: String): String{
+        val chan = NotificationChannel(channelId,
+            channelName, NotificationManager.IMPORTANCE_NONE)
+        chan.lightColor = Color.BLUE
+        chan.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        val service = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        service.createNotificationChannel(chan)
+        return channelId
+    }
+
     /** Creates a notification manager for background playback. */
     private fun createNotificationManager() {
         try {
             println("xdfxffg$notificationTitle")
-            println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-            println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-            println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-            println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-            println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-            println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-            println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-
             //Notification click intent
             val changePage = Intent("android.intent.action.MAIN")
-            changePage.component =
-                ComponentName("com.radiofm.freeradio", "com.radiofm.freeradio.MainActivity")
-            val p = PendingIntent.getActivity(this, 0, changePage, 0);
+            changePage.component = ComponentName("com.radiofm.freeradio", "com.radiofm.freeradio.MainActivity")
+            if(Build.VERSION.SDK_INT >= 31){
+                p = PendingIntent.getActivity(this, 0, changePage, PendingIntent.FLAG_IMMUTABLE);
+            }else{
+                p = PendingIntent.getActivity(this, 0, changePage, PendingIntent.FLAG_IMMUTABLE);
+            }
 
 
             //Play broadcast intent
             val play = Intent(ACTION_NOTIFICATION_DATA)
             play.putExtra(ACTION_NOTIFICATION_EXTRA, "PLAY")
-            val playintent = PendingIntent.getBroadcast(this, 10, play, 0)
-
+            if(Build.VERSION.SDK_INT >= 31){
+                playintent = PendingIntent.getBroadcast(this, 10, play, PendingIntent.FLAG_IMMUTABLE)
+            }else{
+                playintent = PendingIntent.getBroadcast(this, 10, play, PendingIntent.FLAG_IMMUTABLE)
+            }
             //Pause broadcast intent
             val pause = Intent(ACTION_NOTIFICATION_DATA)
             pause.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
             pause.putExtra(ACTION_NOTIFICATION_EXTRA, "PAUSE")
-            val pauseintent = PendingIntent.getBroadcast(this, 20, pause, 0)
-
+            if(Build.VERSION.SDK_INT >= 31){
+                pauseintent = PendingIntent.getBroadcast(this, 20, pause, PendingIntent.FLAG_IMMUTABLE)
+            }else{
+                pauseintent = PendingIntent.getBroadcast(this, 20, pause, PendingIntent.FLAG_IMMUTABLE)
+            }
             //Next broadcast intent
             val next = Intent(ACTION_NOTIFICATION_DATA)
             next.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
             next.putExtra(ACTION_NOTIFICATION_EXTRA, "NEXT")
-            val nextintent = PendingIntent.getBroadcast(this, 30, next, 0)
 
+            if(Build.VERSION.SDK_INT >= 31){
+                nextintent = PendingIntent.getBroadcast(this, 30, next, PendingIntent.FLAG_IMMUTABLE)
+            }else{
+                nextintent = PendingIntent.getBroadcast(this, 30, next, PendingIntent.FLAG_IMMUTABLE)
+            }
             //Previous broadcast intent
             val previous = Intent(ACTION_NOTIFICATION_DATA)
             previous.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
             previous.putExtra(ACTION_NOTIFICATION_EXTRA, "PREVIOUS")
-            val previousintent = PendingIntent.getBroadcast(this, 40, previous, 0)
+            if(Build.VERSION.SDK_INT >= 31){
+                previousintent = PendingIntent.getBroadcast(this, 40, previous, PendingIntent.FLAG_IMMUTABLE)
+            }else{
+                previousintent = PendingIntent.getBroadcast(this, 40, previous, PendingIntent.FLAG_IMMUTABLE)
+            }
+            val channelId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                createNotificationChannel(NOTIFICATION_CHANNEL_ID, "My akromax radio")
+            } else {
+                // If earlier version channel ID is not used
+                // https://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html#NotificationCompat.Builder(android.content.Context)
+                ""
+            }
 
-            val noti = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-                // Show controls on lock screen even when user hides sensitive content.
+            val notificationBuilder = NotificationCompat.Builder(this, channelId )
+            val notification = notificationBuilder.setOngoing(true)
+                .setSmallIcon(R.drawable.ic_launcher)
+                .setPriority(PRIORITY_MIN)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setSmallIcon(R.drawable.exo_notification_small_icon)
                 // Add media control buttons that invoke intents in your media service
                 .addAction(R.drawable.exo_icon_previous, "Previous", previousintent) // #0
             if (player.playWhenReady) {
-                noti.addAction(R.drawable.exo_icon_pause, "Pause", pauseintent) // #1
+                notification.addAction(R.drawable.exo_icon_pause, "Pause", pauseintent) // #1
             } else {
-                noti.addAction(R.drawable.exo_icon_play, "Play", playintent) // #1
+                notification.addAction(R.drawable.exo_icon_play, "Play", playintent) // #1
             }
                 .setStyle(androidx.media.app.NotificationCompat.MediaStyle()
-                        .setShowActionsInCompactView(0,1,2 /* #1: pause button \*/)
+                    .setShowActionsInCompactView(1 /* #1: pause button \*/)
                 )
                 .setColor(Color.RED)
+                .setProgress(100,1,true)
                 .setColorized(true)
                 .setContentIntent(p)
                 .setOngoing(true)
@@ -252,60 +276,13 @@ import java.util.*
                 // Apply the media style template
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentTitle(notificationTitle)
-            val mediaDescriptionAdapter = object : MediaDescriptionAdapter {
-                override fun createCurrentContentIntent(player: Player): PendingIntent? {
-                    return p
-                }
-                override fun getCurrentLargeIcon(player: Player, callback: BitmapCallback): Bitmap? {
-                    metadataArtwork = downloadImage(metadataList?.get(2))
-                    if (metadataArtwork != null) callback?.onBitmap(metadataArtwork!!)
-                    return defaultArtwork
-                }
-                override fun getCurrentContentTitle(player: Player): String {
-                    return metadataList?.get(0) ?: notificationTitle
-                }
-                override fun getCurrentContentText(player: Player): String? {
-                    return metadataList?.get(1) ?: null
-                }
-
-
-            }
-            val notificationListener = object : PlayerNotificationManager.NotificationListener {
-                override fun onNotificationPosted(notificationId: Int, notification: Notification, ongoing: Boolean) {
-                    //startForeground(NOTIFICATION_ID,noti.build())
-                }
-                override fun onNotificationCancelled(notificationId: Int, dismissedByUser: Boolean) {
-                    //isForegroundService = false
-                  //  stopSelf()
-                }
-            }
-            playerNotificationManager = PlayerNotificationManager.createWithNotificationChannel(
-                this, NOTIFICATION_CHANNEL_ID, R.string.channel_name, NOTIFICATION_ID,
-                mediaDescriptionAdapter, notificationListener).apply {
-                setUsePlayPauseActions(true)
-                setUseNavigationActionsInCompactView(true)
-                setUseNavigationActions(true)
-                setRewindIncrementMs(0)
-                setFastForwardIncrementMs(0)
-            }
-          try{
-              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                  startForeground(NOTIFICATION_ID,noti.build(),ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-              }else{
-                  startForeground(NOTIFICATION_ID,noti.build())
-              }
-          }catch (e:Exception){
-              println(e)
-          }
-
+                .setLargeIcon(defaultArtwork)
+                .setCategory(Notification.CATEGORY_SERVICE)
+                .build()
+            startForeground(NOTIFICATION_ID, notification.build())
 
         }catch (e:Exception){
             println(e)
-            println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-            println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-            println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-            println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-            println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
         }
     }
     override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
@@ -365,83 +342,6 @@ import java.util.*
         }
 
         return bitmap
-    }
-
-    private class customAction : CustomActionReceiver {
-        override fun createCustomActions(context: Context, instanceId: Int): Map<String, NotificationCompat.Action> {
-            val intent = Intent("Favourite").setPackage(context.packageName)
-            val pendingIntent = PendingIntent.getBroadcast(
-                context, instanceId, intent, PendingIntent.FLAG_CANCEL_CURRENT
-            )
-            val prev: NotificationCompat.Action = NotificationCompat.Action(
-                R.drawable.exo_icon_previous,
-                ACTION_PREVIOUS,
-                pendingIntent
-            )
-            val play: NotificationCompat.Action = NotificationCompat.Action(
-                R.drawable.exo_icon_play,
-                ACTION_PLAY,
-                pendingIntent
-            )
-            val pause: NotificationCompat.Action = NotificationCompat.Action(
-                R.drawable.exo_icon_pause,
-                ACTION_PAUSE,
-                pendingIntent
-            )
-            val next: NotificationCompat.Action = NotificationCompat.Action(
-                R.drawable.exo_icon_next,
-                ACTION_NEXT,
-                pendingIntent
-            )
-            val actionMap: MutableMap<String, NotificationCompat.Action> = HashMap()
-            actionMap[ACTION_PREVIOUS] = prev
-            actionMap[ACTION_PLAY] = play
-            actionMap[ACTION_PAUSE] = pause
-            actionMap[ACTION_NEXT] = next
-            return actionMap
-        }
-
-        override fun getCustomActions(player: Player): List<String> {
-            val customActions: MutableList<String> = ArrayList()
-            customActions.add(ACTION_PREVIOUS)
-            if (player.playWhenReady) {
-                customActions.add(ACTION_PAUSE)
-            } else {
-                customActions.add(ACTION_PLAY)
-            }
-            customActions.add(ACTION_NEXT)
-            return customActions
-        }
-
-        override fun onCustomAction(player: Player, action: String, intent: Intent) {
-            Log.d("test tag", action)
-            Log.d("test tag2", intent.toString())
-            when (action) {
-                ACTION_PLAY -> {
-                    Log.d("test tag", "play")
-                   // controlDispatcher.dispatchSetPlayWhenReady(player, action == ACTION_PLAY)
-                }
-                ACTION_PAUSE -> {
-                    Log.d("test tag", "pause")
-                   // controlDispatcher.dispatchSetPlayWhenReady(player, action == ACTION_PLAY)
-                }
-                ACTION_NEXT -> {
-                    Log.d("test tag", "next")
-                    val nextWindowIndex = player.nextWindowIndex
-                    if (nextWindowIndex != C.INDEX_UNSET) {
-                     //   controlDispatcher.dispatchSeekTo(player, nextWindowIndex, C.TIME_UNSET)
-                    }
-                }
-                ACTION_PREVIOUS -> {
-                    Log.d("test tag", "prev")
-//                    player.currentTimeline.getWindow(player.currentWindowIndex, window)
-//                    val previousWindowIndex = player.previousWindowIndex
-//                    if (previousWindowIndex != C.INDEX_UNSET && window.isDynamic && !window.isSeekable) {
-//                       // controlDispatcher.dispatchSeekTo(player, previousWindowIndex, C.TIME_UNSET)
-//                    }
-                }
-            }
-        }
     }
 }
 

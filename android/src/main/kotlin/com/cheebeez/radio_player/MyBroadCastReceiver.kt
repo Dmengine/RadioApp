@@ -9,11 +9,15 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 
-class MyBroadCastReceiver(localBroadcastManager: LocalBroadcastManager): BroadcastReceiver() {
+class MyBroadCastReceiver(val localBroadcastManager: LocalBroadcastManager?=null): BroadcastReceiver() {
     private var localBroadcastM: LocalBroadcastManager?=null
+
     init {
         localBroadcastM=localBroadcastManager;
     }
+
+
+
     override fun onReceive(p0: Context?, p1: Intent?) {
         println("ACTION")
         if(p1!=null) {
@@ -47,7 +51,9 @@ class MyBroadCastReceiver(localBroadcastManager: LocalBroadcastManager): Broadca
                     stateIntent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
                     stateIntent.putExtra(RadioPlayerService.ACTION_NOTIFICATION_EXTRA, "PLAY")
                     localBroadcastM?.sendBroadcast(stateIntent)
-                }else{}
+                }else{
+
+                }
             }
         }
     }

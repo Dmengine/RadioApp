@@ -12,8 +12,7 @@
             android:foregroundServiceType="mediaPlayback"
             android:name=".RadioPlayerService"/>
         <receiver android:name=".MyBroadCastReceiver"
-            android:exported="true"
-            tools:ignore="Instantiatable">
+            android:exported="true">
             <intent-filter>
                 <action android:name="com.radiofm.freeradio.N"/>
             </intent-filter>
